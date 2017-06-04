@@ -1,0 +1,96 @@
+﻿using System.Diagnostics;
+using System.IO;
+using System.Web;
+using System.Web.Hosting;
+using System.Web.Optimization;
+
+namespace BlogEngine_Admin
+{
+    public class BundleConfig
+    {
+        public static string AdminAppDir = "app";
+
+        public static void RegisterBundles(BundleCollection bundles)
+        {
+            CleanupUnusedFiles();
+            BundleTable.VirtualPathProvider = new ScriptBundlePathProvider(HostingEnvironment.VirtualPathProvider);
+            AddAppBundle(bundles);
+            bundles.IgnoreList.Ignore("*Spec.js");
+        }
+
+        private static void AddAppBundle(BundleCollection bundles)
+        {
+            var scriptBundle = new ScriptBundle("~/adminScripts");
+            var adminAppDirFullPath = HttpContext.Current.Server.MapPath(string.Format("~/{0}", AdminAppDir));
+
+            if (Directory.Exists(adminAppDirFullPath))
+            {
+                scriptBundle.Include(
+                    string.Format("~/{0}/app.module.js", AdminAppDir),
+                    string.Format("~/{0}/app.core.module.js", AdminAppDir))
+                    .IncludeDirectory(string.Format("~/{0}", AdminAppDir), "*.js", false)
+                    .IncludeDirectory(string.Format("~/{0}", AdminAppDir), "*.module.js", false)
+                    .IncludeDirectory(string.Format("~/{0}", AdminAppDir), "*.js", true);
+            }
+
+            bundles.Add(scriptBundle);
+            bundles.Add(new StyleBundle("~/adminstyles").Include(
+                "~/content/css/admin.css"));
+
+        }
+        [Conditional("DEBUG")]
+        private static void CleanupUnusedFiles()
+        {
+            var adminAppDirFullPath = HttpContext.Current.Server.MapPath(string.Format("~/{0}", AdminAppDir));
+
+            if (Directory.Exists(adminAppDirFullPath))
+            {
+                var jsFiles = Directory.GetFiles(adminAppDirFullPath, "*.js", SearchOption.AllDirectories);
+
+                foreach (var jsFile in jsFiles)
+                {
+                    var tsFile = jsFile.Remove(jsFile.Length - 3, 3) + ".ts";
+                    if (File.Exists(tsFile) && !jsFile.EndsWith("spec.js"))
+                    {
+                        File.Delete(jsFile);
+
+                        var map = jsFile + ".map";
+                        if (File.Exists(map))
+                            File.Delete(map);
+                    }
+                }
+            }
+        }
+    }
+
+
+    class ScriptBundlePathProvider : VirtualPathProvider
+    {
+        private readonly VirtualPathProvider _virtualPathProvider;
+
+        public ScriptBundlePathProvider(VirtualPathProvider virtualPathProvider)
+        {
+            _virtualPathProvider = virtualPathProvider;
+        }
+
+        public override bool FileExists(string virtualPath)
+        {
+            return _virtualPathProvider.FileExists(virtualPath);
+        }
+
+        public override VirtualFile GetFile(string virtualPath)
+        {
+            return _virtualPathProvider.GetFile(virtualPath);
+        }
+
+        public override VirtualDirectory GetDirectory(string virtualDir)
+        {
+            return _virtualPathProvider.GetDirectory(virtualDir);
+        }
+
+        public override bool DirectoryExists(string virtualDir)
+        {
+            return _virtualPathProvider.DirectoryExists(virtualDir);
+        }
+    }
+}
